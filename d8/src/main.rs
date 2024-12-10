@@ -227,6 +227,7 @@ fn solve2(data: &Data, builder: &PointBuilder)->Solution{
     }
     antis.len() as i32
 }
+
 fn main() {
     let start = std::time::Instant::now();
     let file_name = "Data.txt";

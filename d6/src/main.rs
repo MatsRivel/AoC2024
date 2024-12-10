@@ -278,14 +278,16 @@ impl Matrix{
         let blocking_walls = direction_ignored.into_iter().filter_map(|pos|{
             #[cfg(debug_assertions)]
             println!("\n\npos: {pos:?}");
-            let custom_wall_count = self.data.iter()
-                .filter(|tile| {
-                    match tile{
-                        Tile::CustomWall => true,
-                        _ => false
-                    }
-                }).count();
-            assert!(custom_wall_count==0);
+            #[cfg(debug_assertions)]{
+                let custom_wall_count = self.data.iter()
+                    .filter(|tile| {
+                        match tile{
+                            Tile::CustomWall => true,
+                            _ => false
+                        }
+                    }).count();
+                debug_assert!(custom_wall_count==0);
+            }
             self.set_pos(&pos, Tile::CustomWall);
             let path = self.get_path();
             let result = match path{

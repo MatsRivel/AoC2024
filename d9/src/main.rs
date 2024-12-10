@@ -76,6 +76,12 @@ impl BlockType{
             },
         }
     }
+    fn len(&self)->usize{
+        match self{
+            BlockType::Space(block) => block.data.len(),
+            BlockType::Real(block) => block.data.len(),
+        }
+    }
 }
 
 fn get_data(s:&str)->Vec<PointType>{
@@ -131,18 +137,16 @@ fn solve1(data:&Vec<PointType>)->Solution{
 }
 
 mod block_balancer{
-    use std::process::id;
-
     use super::*;
     pub struct BlockBalancer{
-        main: VecDeque<BlockType>,
-        left: VecDeque<BlockType>,
+        main: VecDeque<PointType>,
+        left: VecDeque<PointType>,
         right: VecDeque<BlockType>
     }
     impl BlockBalancer{
-        pub fn new(data:&Data)->Self{
+        pub fn new(data:&Vec<PointType>)->Self{
             let main = VecDeque::new();
-            let left = data.iter().map(|block| block.clone() ).collect(); // Block is clonable.
+            let left = data.iter().map(|point| block.clone() ).collect(); // Block is clonable.
             let right = VecDeque::new();
             Self { main, left, right }
         }
@@ -168,6 +172,7 @@ mod block_balancer{
                     }
                 }
             }
+            self.reset_right(); // Put all points from right back on to left.
             output
         }
         pub fn main_push_back(&mut self, value: BlockType){
@@ -183,9 +188,31 @@ mod block_balancer{
                 idx * point.id
             }).sum::<usize>()
         }
+        pub fn left_len(&self)->usize{
+            self.left.len()
+        }
+        pub fn reset_right(&mut self){
+            while let Some(v) = self.right.pop_front(){
+                self.left.push_back(v);
+            }
+        }
+        pub fn main_as_string(&self)->String{
+            blocks_to_string(self.main.iter())
+        }
 
     }
 
+}
+fn blocks_to_string<'a,I>(blocks: I)->String
+where
+    I: IntoIterator<Item = &'a BlockType>,
+{
+    blocks.into_iter().map(|b| {
+        match b{
+            BlockType::Space(block) => block.data.iter().map(|_| '.'.to_string()).collect::<String>(),
+            BlockType::Real(block) => block.data.iter().map(|p| format!("{}",p.id)).collect::<String>(),
+        }
+    }).collect::<String>()
 }
 fn points_to_blocks(data:&Vec<PointType>)->Vec<BlockType>{
     data.iter().fold(vec![vec![]], |mut acc: Vec<Vec<PointType>>,v|{
@@ -222,6 +249,8 @@ fn solve2(point_data:&Vec<PointType>)->Solution{
             },
         }
     }
+    #[cfg(debug_assertions)]
+    println!("{}",balancer.main_as_string());
     balancer.get_score()
 }
 
@@ -265,6 +294,69 @@ mod tests{
         let data = get_data(&s);
         let solution1 = solve2(&data);
         assert_eq!(solution1,expected)
+    }
+    #[test]
+    fn peek_left_should_not_consume(){
+        let s = "1";
+        let data = points_to_blocks(&get_data(&s));
+        let mut balancer = BlockBalancer::new(&data);
+        assert_eq!(balancer.left_len(), 1);
+        let _ = balancer.peek_left();
+        assert_eq!(balancer.left_len(), 1);
+        balancer.left_to_main();
+        assert_eq!(balancer.left_len(), 0);
+    }
+    #[test]
+    fn main_as_string_test_short(){
+        let s = "11";
+        let data = points_to_blocks(&get_data(&s));
+        let mut balancer = BlockBalancer::new(&data);
+        assert_eq!(balancer.left_len(),2);
+        balancer.left_to_main();
+        assert_eq!(balancer.left_len(),1);
+        balancer.left_to_main();
+        assert_eq!(balancer.left_len(),0);
+        let actual = balancer.main_as_string();
+        let expected = "0.".to_string();
+        assert_eq!(actual,expected)
+    }
+    #[test]
+    fn main_as_string_test(){
+        let s = "32";
+        let data = points_to_blocks(&get_data(&s));
+        let mut balancer = BlockBalancer::new(&data);
+        assert_eq!(balancer.left_len(),2);
+        balancer.left_to_main();
+        assert_eq!(balancer.left_len(),1);
+        balancer.left_to_main();
+        assert_eq!(balancer.left_len(),0);
+        let actual = balancer.main_as_string();
+        let expected = "000..".to_string();
+        assert_eq!(actual,expected)
+    }
+
+    #[test]
+    fn points_to_blocks_test(){
+        let points = vec![
+            PointType::Real(Point { count: 2, id: 0 }),
+            PointType::Real(Point { count: 2, id: 0 }),
+            PointType::Space(Point { count: 2, id: 1 }),
+            PointType::Space(Point { count: 2, id: 1 }),
+            PointType::Real(Point { count: 3, id: 2 }),
+            PointType::Real(Point { count: 3, id: 2 }),
+            PointType::Real(Point { count: 3, id: 2 })
+        ];
+        let real_points = get_data("223");
+        assert_eq!(real_points,points);
+        let expected = points.iter().map(|p|{
+            match p{
+                PointType::Space(_) => ".".to_string(),
+                PointType::Real(point) => format!("{}",point.id),
+            }
+        }).collect::<String>();
+        let blocks = points_to_blocks(&points);
+        let actual = blocks_to_string(blocks.iter());
+        assert_eq!(actual,expected)
     }
 
 }
