@@ -77,7 +77,6 @@ fn main() {
     println!("P1 time: {:?}",s1_end-file_end);
     println!("P2 time: {:?}",s2_end-s1_end);
     println!("Total time: {:?}",s2_end-start);
-
 }   
 
 #[cfg(test)]
