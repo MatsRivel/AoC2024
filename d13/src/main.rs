@@ -186,15 +186,15 @@ fn solve1(data:&Vec<DataPoint>)->usize{
         let a = &case.a;
         let b = &case.b;
         let target = case.target;
-        if let Some(intersection) = intersection_between_two_lines(*a, *b){
-            println!("a: {}, b: {}",a.step(), b.step() );
-            println!("Intersection: {intersection:?}, Target:{target:?}");
-            let a_count = how_many_vectors_fit_before_target(a, &intersection);
-            let b_count = how_many_vectors_fit_before_target(b, &(target-intersection));
-            if (a.multiply_by(a_count) + b.multiply_by(b_count)).step() == target{
-                total += a_count*A_COST + b_count*B_COST
-            }
-        }
+        // if let Some(intersection) = intersection_between_two_lines(*a, *b){
+        //     println!("a: {}, b: {}",a.step(), b.step() );
+        //     println!("Intersection: {intersection:?}, Target:{target:?}");
+        //     let a_count = how_many_vectors_fit_before_target(a, &intersection);
+        //     let b_count = how_many_vectors_fit_before_target(b, &(target-intersection));
+        //     if (a.multiply_by(a_count) + b.multiply_by(b_count)).step() == target{
+        //         total += a_count*A_COST + b_count*B_COST
+        //     }
+        // }
     }
     total
 }
