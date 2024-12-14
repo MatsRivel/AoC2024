@@ -5,6 +5,8 @@ use plant::Plant;
 use position::Position;
 
 mod position{
+    use std::fmt::Display;
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Position{
         x: usize,
@@ -33,6 +35,11 @@ mod position{
         }
         pub fn y(&self)->usize{
             self.y
+        }
+    }
+    impl Display for Position{
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f,"(x: {}, y: {})",self.x,self.y)
         }
     }
 }
@@ -174,7 +181,7 @@ fn get_data(s:&str)->Matrix<Plant>{
         let neighbours = pos.neighbours().into_iter().map(|n|{
             match n{
                 Some(neighbour) => {
-                    println!("{pos:?}->{neighbour:?}");
+                    // println!("{pos:?}->{neighbour:?}");
                     if chars.get(neighbour) == chars.get(pos){
                         Some(neighbour)
                     }else{
@@ -191,6 +198,31 @@ fn get_data(s:&str)->Matrix<Plant>{
     plants
 }
 
+fn neighbour_search(current: Position, data:&Matrix<Plant>, seen: &mut HashSet<Position>)->usize{
+    let mut local_seen = HashSet::<Position>::new();
+    let mut queue = VecDeque::<Position>::new();
+    println!();
+    queue.push_front(current);
+    while let Some(next) = queue.pop_front(){
+        if local_seen.contains(&next){
+            continue;
+        }
+        println!("{next}");
+        local_seen.insert(next);
+        data.get(next)
+            .unwrap()
+            .neighbours()
+            .into_iter()
+            .filter_map(|n|n).for_each(|n| queue.push_front(n));
+    }
+    let edge_counts = local_seen.iter().map(|point| data.get(*point).unwrap().neighbours().into_iter().filter(|n|n.is_none()).count() ).collect::<Vec<usize>>();
+    let area = edge_counts.len();
+    let circumference = edge_counts.into_iter().sum::<usize>();
+    println!("region: {}, Area: {area}, Circumference: {circumference}", data.get(current).unwrap().id());
+    // Put local seen into global seen.
+    local_seen.into_iter().for_each(|n| {seen.insert(n);});
+    area*circumference
+}
 fn solve1(data:&Matrix<Plant>)->usize{
     data.print();
     let mut total = 0;
@@ -198,34 +230,12 @@ fn solve1(data:&Matrix<Plant>)->usize{
     let total_length = data.width()*data.height();
     // Iter through all values
     for idx in 0..total_length{
-        // Skip any visited values
-        let pos = data.idx_to_pos(idx).unwrap();
-        if seen.contains(&pos){
+        let current = data.idx_to_pos(idx).unwrap();
+        if seen.contains(&current){
             continue;
         }
-        println!("____");
-        // Go through neighbours of current.
-        let mut queue = VecDeque::new();
-        queue.push_front(pos);
-        let mut area = 0;
-        let mut circumference = 0;
-        while let Some(next_pos) = queue.pop_front(){
-            if seen.contains(&next_pos){
-                continue;
-            }else{
-                seen.insert(next_pos);
-            }
-            let plant = data.get(next_pos).unwrap();
-            println!("{}",plant.id());
-            area += 1;
-            circumference += plant.neighbours().into_iter().filter(|v| v.is_none()).count();
-            plant.neighbours().into_iter().filter_map(|n|n).for_each(|n|queue.push_front(n));
-
-        }
-        let current_plant = data.get(pos).unwrap();
-        println!("A: {area}, C: {circumference}, Root plant: {current_plant}");
-        total += area*circumference;
-
+        let section_value = neighbour_search(current, data, &mut seen);
+        total += section_value;
     }
     total
 }
