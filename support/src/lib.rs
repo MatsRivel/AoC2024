@@ -112,45 +112,61 @@ pub mod position{
 }
 
 pub mod matrix{
+    use std::{collections::HashMap, fmt::Display, marker::PhantomData};
     use crate::position::Position;
-    pub struct Matrix<T>{
+
+    pub trait GetSet<KeyType,ValueType>{
+        fn get(&self, key: KeyType)-> Option<ValueType>;
+        fn set(&mut self, key: KeyType, value: ValueType);
+    }
+
+    #[derive(Clone)]
+    pub struct Matrix<DataType,IntType, StorageType>{
+        data_type: PhantomData<DataType>,
+        int_type: PhantomData<IntType>,
         width: usize,
         height: usize,
-        data: Vec<T>,
-        iter_idx: usize,
+        data: StorageType,
     }
-    impl <T:Copy>Matrix<T>{
-        pub fn new_from_square(data:Vec<Vec<T>>)->Self{
-            let height = data.len();
-            let width = data[0].len();
-            let data = data.into_iter().flat_map(|row| row).collect();
-            Self::new_from_flat(width, height, data)
-        }
-        pub fn new_from_flat(width: usize, height: usize, data:Vec<T>)->Self{
-            Self { width, height, data , iter_idx:0}
-        }
-        fn pos_to_idx(&self,pos:Position<usize>)->Option<usize>{
-            if pos.x() >= self.width || pos.y() >= self.height{
+    // General Impl
+    impl <DataType, IntType, StorageType> Matrix<DataType,IntType, StorageType>
+    where   DataType: Copy + std::cmp::PartialEq,
+    
+            IntType: Copy + 
+                std::cmp::PartialOrd<IntType> + 
+                std::ops::Add<IntType, Output = IntType> + 
+                std::ops::Mul<IntType, Output = IntType> +
+                std::fmt::Debug +
+                TryFrom<usize>,
+
+            usize: TryFrom<IntType>,
+
+            <IntType as TryFrom<usize>>::Error : std::fmt::Debug,
+
+            <usize as TryFrom<IntType>>::Error: std::fmt::Debug,
+            StorageType: Clone
+    {
+        fn pos_to_idx(&self,pos:Position<IntType>)->Option<usize>{
+            let width = self.width().try_into().ok()?;
+            let height = self.height().try_into().ok()?;
+            if pos.x() >= width || pos.y() >= height{
                 return None;
             }
-            Some(pos.y()*self.width+pos.x())
+            let width_as_new_type: IntType = self.width.try_into().unwrap();
+            let idx = (pos.y() * width_as_new_type) + pos.x();
+            let idx_as_usize: usize = idx.try_into().unwrap();
+            Some( idx_as_usize )
         }
-        pub fn idx_to_pos(&self,idx:usize)->Option<Position<usize>>{
-            if idx < self.data.len(){
+        pub fn is_pos_valid(&self, pos: Position<IntType>)->bool{
+                self.pos_to_idx(pos).is_some()
+        }
+        pub fn idx_to_pos(&self,idx:usize)->Option<Position<IntType>>{
+            if idx < self.width()*self.height(){
                 let y = idx / self.width;
                 let x = idx % self.width;
-                Some(Position::new(x, y))
+                Some(Position::new(x.try_into().unwrap(), y.try_into().unwrap()))
             }else{
                 None
-            }
-        }
-        pub fn get(&self, pos: Position<usize>)->Option<T>{
-            let idx = self.pos_to_idx(pos)?;
-            self.data.get(idx).copied()
-        }
-        pub fn set(&mut self, pos: Position<usize>, value: T){
-            if let Some(idx) = self.pos_to_idx(pos){
-                self.data[idx] = value;
             }
         }
         pub fn width(&self)->usize{
@@ -159,11 +175,188 @@ pub mod matrix{
         pub fn height(&self)->usize{
             self.height
         }
-        pub fn clone_data(&self)->Vec<T>{
+        pub fn clone_data(&self)->StorageType{
             self.data.clone()
         }
     }
+
+    // Matrix with underlying HashMap as storage device.
+    impl <DataType, IntType> Matrix<DataType,IntType, HashMap<Position<IntType>,DataType>>
+        where   DataType: Copy + std::cmp::PartialEq,
+
+                IntType: Copy + 
+                    std::hash::Hash +
+                    std::cmp::Eq +
+                    std::cmp::PartialOrd<IntType> + 
+                    std::ops::Add<IntType, Output = IntType> + 
+                    std::ops::Mul<IntType, Output = IntType> +
+                    std::fmt::Debug +
+                    TryFrom<usize>,
+
+                usize: TryFrom<IntType>,
+
+                <IntType as TryFrom<usize>>::Error : std::fmt::Debug,
+
+                <usize as TryFrom<IntType>>::Error: std::fmt::Debug,
+        {
+        pub fn new_from_square(data:Vec<Vec<DataType>>, filter_function: fn(&DataType)->bool)->Self{
+            let height = data.len();
+            let width = data[0].len();
+            let data = data.into_iter()
+                .enumerate()
+                .flat_map(|(y, row)| {
+                    row.into_iter()
+                        .enumerate()
+                        .filter(|(x,d)| filter_function(&d))
+                        .map(move |(x,d)| (Position::new(x.try_into().unwrap(), y.try_into().unwrap() ),d))
+                }).collect();
+            Self::new_from_flat(width, height, data)
+        }
+
+        pub fn new_from_flat(width: usize, height: usize, data:HashMap<Position<IntType>,DataType>)->Self{
+            Self{data_type: PhantomData::<DataType>, int_type: PhantomData::<IntType>, width, height, data}
+        }
+
+        pub fn find(&self, target: &DataType)->Option<Position<IntType>>{
+            for (key,val) in self.data.iter(){
+                if val == target{
+                    return Some(*key);
+                }
+            }
+            None
+        }
+
+    }
+    // Implementing a generic Get/Set for the underlying data structure for the HashMap based matrix. (Needed for Display)
+    impl <DataType, IntType> GetSet<Position<IntType>,DataType> for Matrix<DataType,IntType, HashMap<Position<IntType>,DataType>>
+    where   DataType: Copy + std::cmp::PartialEq,
+
+            IntType: Copy + 
+                std::hash::Hash +
+                std::cmp::Eq +
+                std::cmp::PartialOrd<IntType> + 
+                std::ops::Add<IntType, Output = IntType> + 
+                std::ops::Mul<IntType, Output = IntType> +
+                std::fmt::Debug +
+                TryFrom<usize>,
+
+            usize: TryFrom<IntType>,
+
+            <IntType as TryFrom<usize>>::Error : std::fmt::Debug,
+
+            <usize as TryFrom<IntType>>::Error: std::fmt::Debug,
+    {
+        fn get(&self,key: Position<IntType>)->Option<DataType> {
+            if let Some(value) = self.data.get(&key){
+                Some(*value)
+            }else{
+                None
+            }
+        }
+    
+        fn set(&mut self,key: Position<IntType>, value: DataType) {
+            if let Some(_) = self.pos_to_idx(key){
+                self.data.insert(key, value);
+            }
+        }
+    }
+    
+    // Matrix with underlying Vec as storage device.
+    impl <DataType, IntType> Matrix<DataType,IntType, Vec<DataType>>
+        where   DataType: Copy + std::cmp::PartialEq,
+                IntType: Copy + 
+                    std::cmp::PartialOrd<IntType> + 
+                    std::ops::Add<IntType, Output = IntType> + 
+                    std::ops::Mul<IntType, Output = IntType> +
+                    std::fmt::Debug +
+                    TryFrom<usize>,
+
+                usize: TryFrom<IntType>,
+
+                <IntType as TryFrom<usize>>::Error : std::fmt::Debug,
+
+                <usize as TryFrom<IntType>>::Error: std::fmt::Debug,
+        {
+        pub fn new_from_flat(width: usize, height: usize, data:Vec<DataType>)->Self{
+            Self{data_type: PhantomData::<DataType>, int_type: PhantomData::<IntType>, width, height, data}
+        }
+        pub fn new_from_square(data:Vec<Vec<DataType>>)->Self{
+            let height = data.len();
+            let width = data[0].len();
+            let data = data.into_iter().flat_map(|row| row).collect();
+            Self::new_from_flat(width, height, data)
+        }
+
+        pub fn find(&self, target: &DataType)->Option<Position<IntType>>{
+            for (idx, val) in self.data.iter().enumerate(){
+                if val == target{
+                    return self.idx_to_pos(idx);
+                }
+            }
+            None
+        }
+    }
+    // Implementing a generic Get/Set for the underlying data structure for the HashMap based matrix. (Needed for Display)
+    impl <DataType, IntType> GetSet<Position<IntType>,DataType> for Matrix<DataType,IntType, Vec<DataType>>
+    where DataType: Copy + std::cmp::PartialEq,
+        IntType: Copy + 
+            std::cmp::PartialOrd<IntType> + 
+            std::ops::Add<IntType, Output = IntType> + 
+            std::ops::Mul<IntType, Output = IntType> +
+            std::fmt::Debug +
+            TryFrom<usize>,
+
+        usize: TryFrom<IntType>,
+
+        <IntType as TryFrom<usize>>::Error : std::fmt::Debug,
+
+        <usize as TryFrom<IntType>>::Error: std::fmt::Debug
+    {
+        fn get(&self,key: Position<IntType>)->Option<DataType> {
+            let idx = self.pos_to_idx(key)?;
+            if let Some(value) = self.data.get(idx){
+                Some(*value)
+            }else{
+                None
+            }
+        }
+    
+        fn set(&mut self,key: Position<IntType>, value: DataType) {
+            if let Some(idx) = self.pos_to_idx(key){
+                self.data[idx]= value;
+            }
+        }
+    }
+    // Semi-generic display implementation.
+    impl <DataType, IntType, StorageType>Display for Matrix<DataType,IntType, StorageType> 
+    where 
+        Self: GetSet<Position<IntType>,DataType>,
+        DataType: Display,
+        IntType: Display + TryFrom<usize>,
+        usize: TryFrom<IntType>,
+        <IntType as TryFrom<usize>>::Error : std::fmt::Debug,
+        <usize as TryFrom<IntType>>::Error: std::fmt::Debug,
+     {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let mut v = vec![];
+            for y in 0..self.height {
+                for x in 0..self.width {
+                    let p = Position::new(x.try_into().unwrap(), y.try_into().unwrap());
+                    let s = match self.get(p){
+                        Some(data) => format!("{data}"),
+                        None => format!(" ")
+                    };
+                    v.push(s);
+                }
+                v.push("\n".to_string());
+            }
+            let output = v.join("");
+            write!(f,"{output}")
+        }
+         }
+
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
