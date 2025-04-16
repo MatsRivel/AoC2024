@@ -168,8 +168,8 @@ fn solve1(data: &Data, builder: &PointBuilder)->Solution{
             .filter_map(|n| n)
                 .filter(|node| makes_anti_node(a, b, node))
                 .for_each(|node| {
-                    #[cfg(debug_assertions)]
-                    println!("Antinode: {node:?}"); 
+                    // #[cfg(debug_assertions)]
+                    // println!("Antinode: {node:?}"); 
                     antis.insert(node);
                 });
         }
@@ -189,6 +189,7 @@ fn solve1(data: &Data, builder: &PointBuilder)->Solution{
             }
             println!()
         }
+        println!("___")
     }
     antis.len() as i32
 }
@@ -203,8 +204,8 @@ fn solve2(data: &Data, builder: &PointBuilder)->Solution{
             possible_anti_nodes.into_iter()
                 // .filter(|node| makes_anti_node(a, b, node))
                 .for_each(|node| {
-                    #[cfg(debug_assertions)]
-                    println!("Antinode: {node:?}"); 
+                    // #[cfg(debug_assertions)]
+                    // println!("Antinode: {node:?}"); 
                     antis.insert(node);
                 });
         }
@@ -239,7 +240,8 @@ fn main() {
     assert_eq!(solution1,249);
     let s1_end = std::time::Instant::now();
     let solution2 = solve2(&data, &builder);
-    assert_eq!(solution2,0);
+    // assert_eq!(solution2,0);
+    assert!(solution2<2500);
     let s2_end = std::time::Instant::now();
     println!("Part1: {solution1}");
     println!("Part2: {solution2}");
