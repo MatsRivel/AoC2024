@@ -14,15 +14,8 @@ pub type IntType = i32;
 
 
 
+pub fn get_shortcuts(tile_matrix:Matrix<Tile>,savings_threshold:i32,max_shortcut_length:i32)->i32{
 
-fn main() {
-    #[cfg(debug_assertions)]
-    let path = "TestData.txt";
-    // let path = "HomeBrew3.txt";
-    #[cfg(not(debug_assertions))]
-    let path = "Data.txt";
-
-    let tile_matrix = Matrix::new(path);
     let end = tile_matrix.get_end();
 
     let mut distance_matrix = Matrix::from(&tile_matrix);
@@ -49,18 +42,17 @@ fn main() {
 
     }
     
-    #[cfg(not(debug_assertions))]
-    let shortcut_value_threshold = 100;
-    
-    #[cfg(debug_assertions)]
-    let shortcut_value_threshold = 1;
+
     #[cfg(debug_assertions)]
     let mut shortcut_candidates = Vec::new();
     #[cfg(debug_assertions)]
     let mut shortcut_log: HashMap<i32, i32> = HashMap::new();
-    
-    let mut shortcut_count = 0;
+    #[cfg(debug_assertions)]
     let mut map = tile_matrix.get_map();
+    #[cfg(not(debug_assertions))]
+    let map = tile_matrix.get_map();
+
+    let mut shortcut_count = 0;
     for y in 1..(map.len()-1){
         for x in  1..(map[y].len()-1){
             let pos = Position::new(x as i32, y as i32);
@@ -99,7 +91,7 @@ fn main() {
                 let score_b = distance_matrix.get(neighbours[b]).unwrap().unwrap();
                 let shorcut_value = (score_a-score_b).abs();
                 // +1 is added because we need to take a step during the shortcut.
-                if shorcut_value >= shortcut_value_threshold+1{
+                if shorcut_value >= savings_threshold+1{
                     shortcut_count += 1;
 
                     #[cfg(debug_assertions)]
@@ -114,8 +106,6 @@ fn main() {
             }
         }
     }
-    println!("{shortcut_count} shortcuts >= {shortcut_value_threshold}");
-
     #[cfg(debug_assertions)]
     {
         println!();
@@ -130,13 +120,38 @@ fn main() {
         }
         println!("{shortcut_log:#?}");
     }
+    return shortcut_count;
+}
+
+fn main() {
+
+    #[cfg(debug_assertions)]
+    let path = "TestData.txt";
+    // let path = "HomeBrew3.txt";
+    #[cfg(not(debug_assertions))]
+    let path = "Data.txt";
+
+    let tile_matrix = Matrix::new(path);
+    let max_shortcut_length = 2;
+    #[cfg(not(debug_assertions))]
+    let shortcut_value_threshold = 100;
+    
+    #[cfg(debug_assertions)]
+    let shortcut_value_threshold = 1;
+    let shortcut_count = get_shortcuts(tile_matrix,shortcut_value_threshold,max_shortcut_length);
+    println!("{shortcut_count} shortcuts >= {shortcut_value_threshold}");
 
 }
 #[cfg(test)]
 mod tests{
-
-
     use super::*;
     use test_case::test_case;
+    #[test_case("TestData.txt",1, 77)]
+    #[test_case("Data.txt",100, 1375)]
+    fn solves_p1(path:&str, shortcut_value_threshold: i32, expected:i32){
+        let tile_matrix = Matrix::new(path);
+        let shortcut_count = get_shortcuts(tile_matrix,shortcut_value_threshold, 2);
+        assert_eq!(shortcut_count,expected)
+    }
 
 }
