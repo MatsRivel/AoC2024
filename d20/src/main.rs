@@ -10,18 +10,24 @@ use tile::Tile;
 
 pub type IntType = i32;
 
+pub fn shortcut_counting(a:usize,b:usize, distance_matrix: &Matrix<Option<i32>>, neighbours: &Vec<Position<IntType>>, savings_threshold:i32 )->i32{
+
+    let score_a = distance_matrix.get(neighbours[a]).unwrap().unwrap();
+    let score_b = distance_matrix.get(neighbours[b]).unwrap().unwrap();
+    let shorcut_value = (score_a-score_b).abs();
+    // +1 is added because we need to take a step during the shortcut.
+    if shorcut_value >= savings_threshold+1{
+        return 1;
+    }else{
+        return 0;
+    }
+}
 
 
-
-
-pub fn get_shortcuts(tile_matrix:Matrix<Tile>,savings_threshold:i32,max_shortcut_length:i32)->i32{
-
-    let end = tile_matrix.get_end();
-
-    let mut distance_matrix = Matrix::from(&tile_matrix);
-
+pub fn get_distance_matrix(tile_matrix:&Matrix<Tile>)->Matrix<Option<i32>>{
+    let mut distance_matrix = Matrix::from(tile_matrix);
     let mut candidates: HashSet<Position<IntType>> = HashSet::new();
-    candidates.insert(end);
+    candidates.insert(tile_matrix.get_end());
     // let mut counter = 0;
     while let Some(&candidate) = candidates.iter().next(){
         let path_cost = distance_matrix.get(candidate).unwrap().unwrap()+1;
@@ -39,9 +45,12 @@ pub fn get_shortcuts(tile_matrix:Matrix<Tile>,savings_threshold:i32,max_shortcut
                 candidates.insert(neighbour);
             }
         }
-
     }
-    
+    return distance_matrix;
+}
+
+pub fn get_shortcuts(tile_matrix:Matrix<Tile>,savings_threshold:i32, max_shortcut_length:i32)->i32{
+    let distance_matrix = get_distance_matrix(&tile_matrix);
 
     #[cfg(debug_assertions)]
     let mut shortcut_candidates = Vec::new();
@@ -76,6 +85,7 @@ pub fn get_shortcuts(tile_matrix:Matrix<Tile>,savings_threshold:i32,max_shortcut
             }
             #[cfg(debug_assertions)]
             shortcut_candidates.push(pos);
+
             let neighbour_matrix: Vec<(usize,usize)> = match neighbour_count{
                 2 =>    [ (0,1) ].into(),
                 3 =>    [ (0,1),(0,2),(1,2) ].into(),
@@ -87,22 +97,7 @@ pub fn get_shortcuts(tile_matrix:Matrix<Tile>,savings_threshold:i32,max_shortcut
 
 
             for (a,b) in neighbour_matrix{
-                let score_a = distance_matrix.get(neighbours[a]).unwrap().unwrap();
-                let score_b = distance_matrix.get(neighbours[b]).unwrap().unwrap();
-                let shorcut_value = (score_a-score_b).abs();
-                // +1 is added because we need to take a step during the shortcut.
-                if shorcut_value >= savings_threshold+1{
-                    shortcut_count += 1;
-
-                    #[cfg(debug_assertions)]
-                    {
-                        if let Some(log) = shortcut_log.get_mut(&shorcut_value){
-                            *log +=1;
-                        }else{
-                            shortcut_log.insert(shorcut_value, 1);
-                        }
-                    }
-                }
+                shortcut_count += shortcut_counting(a, b, &distance_matrix, &neighbours, savings_threshold)
             }
         }
     }
